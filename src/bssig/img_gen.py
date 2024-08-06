@@ -4,6 +4,11 @@ with optional image filters applied
 
 import bpy
 import argparse
+import sys
+import os
+
+sys.path.append(os.path.dirname(__file__))
+
 import scene_utils as su
 import utils
 import filters
@@ -21,14 +26,14 @@ def get_args_parser():
     parser.add_argument(
         'object_path',
         metavar='object-path',
-        type='str',
+        type=str,
         help='Path to 3D object to render in space scene',
         )
     
     parser.add_argument(
         '--num-images',
         type=int,
-        default=1000,
+        default=10,
         help='Number of images to generate',
         )
     
@@ -81,14 +86,14 @@ def get_args_parser():
     parser.add_argument(
         '--min-camera-dist', 
         type=float, 
-        default=5.0, 
+        default=25.0, 
         help='The minimum x, y, z when randomly choosing distance of camera from object.',
         )
     
     parser.add_argument(
         '--max-camera-dist', 
         type=float, 
-        default=10.0, 
+        default=50.0, 
         help='The maximum x, y, z when randomly choosing distance of camera from object.',
         )
     
@@ -150,25 +155,39 @@ def get_args_parser():
         )
     
     parser.add_argument(
+        '--rendering-engine', 
+        type=str, 
+        default='BLENDER_EEVEE_NEXT', 
+        help='Rendering engine to use.',
+        )
+    
+    parser.add_argument(
         '--output-dir', 
         type=str, 
         default='', 
         help='Path to directory to save images to, or current working directory if not specified.',
         )
+    
+    parser.add_argument('--generate-metrics-report') # saves to cwd
+    
+    return parser
 
 def main():
     parser = get_args_parser()
 
-    args = parser.parse_args()
+    args = parser.parse_args(utils.get_script_args())
 
-    utils.mkdir(args.output_dir)
+    if args.output_dir != '':
+        utils.mkdir(args.output_dir)
 
     obj_name = su.setup_scene(args.space_scene_path, args.object_path)
 
-    bpy.context.scene.render.filepath = args.output_dir
+    args.rendering_engine = args.rendering_engine.upper()
+
+    bpy.context.scene.render.engine = args.rendering_engine
 
     # render loop
-    for i in range(len(args.num_images)):
+    for i in range(args.num_images):
         if args.object_pos is not None:
             if args.obj_pos_as_dist != '':
                 su.set_object_dist(obj_name, args.obj_pos_as_dist, args.object_pos)
@@ -176,9 +195,9 @@ def main():
                 su.set_object_pos(obj_name, args.object_pos)
         else:
             if args.obj_pos_as_dist != '':
-                su.rand_set_object_dist(obj_name, args.obj_pos_as_dist, args.min)
+                su.rand_set_object_dist(obj_name, args.obj_pos_as_dist, args.min_object_pos, args.max_object_pos)
             else:
-                su.set_object_pos(obj_name, args.object_pos)
+                su.rand_set_object_pos(obj_name, args.min_object_pos, args.max_object_pos)
             
         if args.object_rot is not None:
             su.set_object_rot(obj_name, args.object_rot)
@@ -193,7 +212,9 @@ def main():
         if args.camera_rot is not None:
             su.set_camera_rot(args.camera_rot)
         else:
-            su.rand_set_camera_rot(obj_name, args.min_camera_rot, args.max_camera_rot, min_perturb_val=args.min_camera_rot_perturb, max_perturb_val=args.max_camera_rot_pertub)
+            su.rand_set_camera_rot(obj_name, args.min_camera_rot, args.max_camera_rot, min_perturb_val=args.min_camera_rot_perturb, max_perturb_val=args.max_camera_rot_perturb)
+
+        bpy.context.scene.render.filepath = os.path.join(args.output_dir, f'img{i}')
 
         bpy.ops.render.render(write_still=True)
 
