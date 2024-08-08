@@ -6,12 +6,13 @@ import bpy
 import argparse
 import sys
 import os
+import numpy as np
 
 sys.path.append(os.path.dirname(__file__))
 
 import scene_utils as su
 import utils
-import filters
+#import filters
 
 def get_args_parser():
     parser = argparse.ArgumentParser(description='BSSIG - Blender Synthetic Space Imagery Generator', add_help=True)
@@ -72,71 +73,81 @@ def get_args_parser():
     parser.add_argument(
         '--min-object-pos', 
         type=float, 
-        default=25.0, 
+        nargs=3,
+        default=[25.0, 25.0, 25.0], 
         help='The minimum x, y, z when randomly choosing position of object.',
         )
     
     parser.add_argument(
         '--max-object-pos', 
         type=float, 
-        default=50.0, 
+        nargs=3,
+        default=[50.0, 50.0, 50.0], 
         help='The maximum x, y, z when randomly choosing position of object.',
         )
     
     parser.add_argument(
         '--min-camera-dist', 
         type=float, 
-        default=25.0, 
+        nargs=3,
+        default=[25.0, 25.0, 25.0], 
         help='The minimum x, y, z when randomly choosing distance of camera from object.',
         )
     
     parser.add_argument(
         '--max-camera-dist', 
         type=float, 
-        default=50.0, 
+        nargs=3,
+        default=[50.0, 50.0, 50.0], 
         help='The maximum x, y, z when randomly choosing distance of camera from object.',
         )
     
     parser.add_argument(
         '--min-object-rot', 
         type=float, 
-        default=0.0, 
+        nargs=3,
+        default=[0.0, 0.0, 0.0], 
         help='The minimum x, y, z radians when randomly choosing the object\'s rotation.',
         )
     
     parser.add_argument(
         '--max-object-rot', 
         type=float, 
-        default=360.0, 
+        nargs=3,
+        default=[360.0, 360.0, 360.0], 
         help='The maximum x, y, z radians when randomly choosing the object\'s rotation.',
         )
     
     parser.add_argument(
         '--min-camera-rot', 
         type=float, 
-        default=0.0, 
+        nargs=3,
+        default=[0.0, 0.0, 0.0], 
         help='The minimum x, y, z radians when randomly choosing the camera\'s rotation.',
         )
     
     parser.add_argument(
         '--max-camera-rot', 
-        type=float, 
-        default=360.0, 
+        type=float,
+        nargs=3,
+        default=[360.0, 360.0, 360.0], 
         help='The maximum x, y, z radians when randomly choosing the camera\'s rotation.',
         )
     
     parser.add_argument(
         '--min-camera-rot-perturb', 
-        type=float, 
-        default=0.0, 
-        help='Minimum random perturbation for camera rotation.',
+        type=float,
+        nargs=3,
+        default=[0.0, 0.0, 0.0], 
+        help='Minimum random perturbation radians for camera rotation.',
         )
     
     parser.add_argument(
         '--max-camera-rot-perturb', 
-        type=float, 
-        default=0.0, 
-        help='Maximum random perturbation for camera rotation.',
+        type=float,
+        nargs=3,
+        default=[0.0, 0.0, 0.0], 
+        help='Maximum random perturbation radians for camera rotation.',
         )
     
     parser.add_argument(
@@ -169,7 +180,7 @@ def get_args_parser():
         )
     
     parser.add_argument('--generate-metrics-report') # saves to cwd
-    
+
     return parser
 
 def main():
@@ -212,10 +223,11 @@ def main():
         if args.camera_rot is not None:
             su.set_camera_rot(args.camera_rot)
         else:
-            su.rand_set_camera_rot(obj_name, args.min_camera_rot, args.max_camera_rot, min_perturb_val=args.min_camera_rot_perturb, max_perturb_val=args.max_camera_rot_perturb)
+            su.rand_set_camera_rot(obj_name, args.min_camera_rot, args.max_camera_rot, min_perturb_vals=args.min_camera_rot_perturb, max_perturb_vals=args.max_camera_rot_perturb)
 
         bpy.context.scene.render.filepath = os.path.join(args.output_dir, f'img{i}')
 
         bpy.ops.render.render(write_still=True)
+
 
 main()

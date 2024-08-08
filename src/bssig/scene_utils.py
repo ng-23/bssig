@@ -83,57 +83,57 @@ def set_camera_rot(xyz, camera_name='Camera'):
 
     set_object_rot(camera_name, xyz)
 
-def rand_xyz(min_val:float, max_val:float):
-    """Randomly generates an (x,y,z) tuple within a certain range
+def rand_xyz(min_vals, max_vals):
+    """Randomly generates an (x,y,z) list within a certain range
     """
 
     xyz = []
 
-    for _ in range(3):
-        rand_val = random.uniform(min_val, max_val)
+    for i in range(3):
+        rand_val = random.uniform(min_vals[i], max_vals[i])
 
         xyz.append(rand_val)
 
     return xyz
 
-def rand_set_object_pos(obj_name:str, min_val:float, max_val:float):
+def rand_set_object_pos(obj_name:str, min_vals, max_vals):
     """Randomly set an object's position within a certain range
     """
 
-    xyz = rand_xyz(min_val, max_val)
+    xyz = rand_xyz(min_vals, max_vals)
 
     set_object_pos(obj_name, xyz)
 
-def rand_set_object_rot(obj_name:str, min_val:float, max_val:float):
+def rand_set_object_rot(obj_name:str, min_vals, max_vals):
     """Randomly set an object's rotation within a certain range
     """
 
-    xyz = rand_xyz(min_val, max_val)
+    xyz = rand_xyz(min_vals, max_vals)
 
     set_object_rot(obj_name, xyz)
 
-def rand_set_object_dist(obj1_name:str, obj2_name:str, min_val:float, max_val:float):
+def rand_set_object_dist(obj1_name:str, obj2_name:str, min_vals, max_vals):
     """Randomly set the position of an object relative to another within a certain range
     """
 
-    xyz = rand_xyz(min_val, max_val)
+    xyz = rand_xyz(min_vals, max_vals)
 
     set_object_dist(obj1_name, obj2_name, xyz)
 
-def rand_set_camera_dist(target_obj:str, min_val:float, max_val:float, camera_name='Camera'):
+def rand_set_camera_dist(target_obj:str, min_vals, max_val:float, camera_name='Camera'):
     """Set the camera's distance from an object within a certain range
     """
 
-    rand_set_object_dist(camera_name, target_obj, min_val, max_val)
+    rand_set_object_dist(camera_name, target_obj, min_vals, max_val)
 
-def rand_set_camera_rot(target_obj_name:str, min_rot_val:float, max_rot_val:float, min_perturb_val=0.0, max_perturb_val=0.0, camera_name='Camera'):
+def rand_set_camera_rot(target_obj_name:str, min_rot_vals, max_rot_vals, min_perturb_vals=[0.0,0.0,0.0], max_perturb_vals=[0.0,0.0,0.0], camera_name='Camera'):
     """Randomly set the camera's rotation about an object within a certain range
 
     Rotation will be in such a way that the target object is always
     at least partially viewable in the camera
     """
 
-    rand_set_object_rot(camera_name, min_rot_val, max_rot_val)
+    rand_set_object_rot(camera_name, min_rot_vals, max_rot_vals)
 
     camera = bpy.data.objects[camera_name]
 
@@ -144,7 +144,9 @@ def rand_set_camera_rot(target_obj_name:str, min_rot_val:float, max_rot_val:floa
     rot_quat = direction.to_track_quat('-Z', 'Y')
     camera.rotation_euler = rot_quat.to_euler()
 
-    # random perturbation    
-    camera.rotation_euler.y += random.uniform(min_perturb_val, max_perturb_val)
-    camera.rotation_euler.z -= random.uniform(min_perturb_val, max_perturb_val)
+    # random perturbation
+    xyz = rand_xyz(min_perturb_vals, max_perturb_vals)
+    camera.rotation_euler.x += xyz[0] 
+    camera.rotation_euler.y += xyz[1]
+    camera.rotation_euler.z -= xyz[2]
 
