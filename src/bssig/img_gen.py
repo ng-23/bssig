@@ -6,13 +6,12 @@ import bpy
 import argparse
 import sys
 import os
-import numpy as np
 
 sys.path.append(os.path.dirname(__file__))
 
 import scene_utils as su
 import utils
-#import filters
+import filters
 
 def get_args_parser():
     parser = argparse.ArgumentParser(description='BSSIG - Blender Synthetic Space Imagery Generator', add_help=True)
@@ -151,6 +150,13 @@ def get_args_parser():
         )
     
     parser.add_argument(
+        '--focal-len', 
+        type=float,
+        default=50.0, 
+        help='Length of camera lens.',
+        )
+    
+    parser.add_argument(
         '--obj-pos-as-dist', 
         type=str, 
         default='', 
@@ -166,11 +172,20 @@ def get_args_parser():
         )
     
     parser.add_argument(
-        '--rendering-engine', 
-        type=str, 
-        default='BLENDER_EEVEE_NEXT', 
-        help='Rendering engine to use.',
+        '--use-cycles',
+        action='store_true',
+        help='Use Cycles for rendering, otherwise use EEVEE.',
         )
+    
+    parser.add_argument('--sun-long', type=float, default=0.0, help='Longitude of the sun. Must have the Sun Position add-on installed.',)
+
+    parser.add_argument('--sun-lat', type=float, default=0.0, help='Latitude of the sun. Must have the Sun Position add-on installed.',)
+
+    parser.add_argument('--date', type=str, default='2024-01-01', help='Global date in yyyy-mm-dd format. Affects sun position only if Sun Position add-on is installed.',)
+
+    parser.add_argument('--utc-time', type=float, default=12.0, help='UTC time. Affects sun position only if Sun Position add-on is installed.',)
+
+    parser.add_argument('--utc-tz', type=float, default=0.0, help='Local UTC time zone. Affects sun position only if Sun Position add-on is installed.',)
     
     parser.add_argument(
         '--output-dir', 
@@ -191,11 +206,12 @@ def main():
     if args.output_dir != '':
         utils.mkdir(args.output_dir)
 
-    obj_name = su.setup_scene(args.space_scene_path, args.object_path)
+    obj_name = su.setup_scene(args.space_scene_path, args.object_path, args.focal_len)
 
-    args.rendering_engine = args.rendering_engine.upper()
-
-    bpy.context.scene.render.engine = args.rendering_engine
+    if args.use_cycles:
+        bpy.context.scene.render.engine = 'CYCLES'
+    else:
+        bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
 
     # render loop
     for i in range(args.num_images):
@@ -228,6 +244,5 @@ def main():
         bpy.context.scene.render.filepath = os.path.join(args.output_dir, f'img{i}')
 
         bpy.ops.render.render(write_still=True)
-
 
 main()
