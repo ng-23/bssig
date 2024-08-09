@@ -3,6 +3,9 @@ import errno
 import sys
 import filters
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+from skimage.metrics import structural_similarity as ssim
 
 def mkdir(path):
     try:
@@ -24,7 +27,7 @@ def get_script_args():
 
     return argv
 
-def ssim(img1, img2, to_grayscale=True):
+def calc_ssim(img1:np.ndarray, img2:np.ndarray, to_grayscale=True):
     """Calculates the Structural Similarity Index (SSIM) between 2 images
 
     Args:
@@ -47,3 +50,32 @@ def ssim(img1, img2, to_grayscale=True):
     data_range = max_value - min_value
 
     return ssim(img1, img2, data_range=data_range)
+
+def plot_img_histogram(img:np.ndarray, to_grayscale=True, log_scale=True, save=True, show=False, filename='img_hist'):
+    """Plots the pixel intensity histogram of an image
+    """
+    
+    if to_grayscale:
+        img = filters.apply_grayscale(img)
+
+    plt.hist(img.flatten(), bins=256, range=(0.0, 1.0), log=log_scale)
+
+    cbar = plt.colorbar(mpl.cm.ScalarMappable(
+        norm=mpl.colors.Normalize(0,1), 
+        cmap=mpl.cm.get_cmap('gray', 256)), 
+        ax=plt.gca(),
+        )
+    cbar.set_label('Grayscale Intensity')
+
+    plt.title('Image Histogram')
+    plt.xlabel('Pixel Intensity')
+    plt.ylabel('Pixel Frequency')
+
+    if save:
+        plt.savefig(filename)
+
+    if show:
+        plt.show()
+
+    plt.close()
+
