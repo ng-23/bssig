@@ -26,13 +26,16 @@ def import_object(obj_path:str):
 
     return imported_obj.name
     
-def setup_scene(scene_path:str, obj_path:str):
+def setup_scene(scene_path:str, obj_path:str, focal_len:float, camera_name='Camera'):
     """Loads the scene and imports an object
     """
     
     bpy.ops.wm.open_mainfile(filepath=scene_path)
 
     obj = import_object(obj_path)
+
+    camera = bpy.data.objects[camera_name]
+    camera.data.lens = focal_len
 
     return obj
 
