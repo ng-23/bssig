@@ -11,7 +11,6 @@ sys.path.append(os.path.dirname(__file__))
 
 import scene_utils as su
 import utils
-import filters
 
 def get_args_parser():
     parser = argparse.ArgumentParser(description='BSSIG - Blender Synthetic Space Imagery Generator', add_help=True)
@@ -164,17 +163,21 @@ def get_args_parser():
         )
     
     parser.add_argument(
-        '--apply-filters', 
-        type=str, 
-        nargs='+', 
-        default=None, 
-        help='Names of post-processing image filters to apply.',
-        )
-    
-    parser.add_argument(
         '--use-cycles',
         action='store_true',
         help='Use Cycles for rendering, otherwise use EEVEE.',
+        )
+    
+    parser.add_argument(
+        '--use-gpu', 
+        action='store_true', 
+        help='Use GPU for rendering. Only applicable when rendering with Cycles. Disables CPU rendering.',
+        )
+    
+    parser.add_argument(
+        '--cycles-experimental', 
+        action='store_true', 
+        help='Use the experimental feature set when rendering with Cycles.',
         )
     
     parser.add_argument('--sun-long', type=float, default=0.0, help='Longitude of the sun. Must have the Sun Position add-on installed.',)
@@ -186,7 +189,15 @@ def get_args_parser():
     parser.add_argument('--utc-time', type=float, default=12.0, help='UTC time. Affects sun position only if Sun Position add-on is installed.',)
 
     parser.add_argument('--utc-tz', type=float, default=0.0, help='Local UTC time zone. Affects sun position only if Sun Position add-on is installed.',)
+
+    parser.add_argument('--num-horiz-pixels', type=int, default=1920, help='Number of horizontal pixels in generated images.',)
     
+    parser.add_argument('--num-vert-pixels', type=int, default=1080, help='Number of vertical pixels in generated images.',)
+    
+    parser.add_argument('--apply-gauss-blur', type=float, default=None, help='Sigma for Gaussian blurring if specified.',)
+    
+    parser.add_argument('--apply-gauss-noise', type=float, default=None, help='Variance for Gaussian noise if specified.',)
+
     parser.add_argument(
         '--output-dir', 
         type=str, 
@@ -194,8 +205,6 @@ def get_args_parser():
         help='Path to directory to save images to, or current working directory if not specified.',
         )
     
-    parser.add_argument('--generate-metrics-report') # saves to cwd
-
     return parser
 
 def main():
@@ -206,10 +215,25 @@ def main():
     if args.output_dir != '':
         utils.mkdir(args.output_dir)
 
-    obj_name = su.setup_scene(args.space_scene_path, args.object_path, args.focal_len)
+    obj_name = su.setup_scene(args.space_scene_path, args.object_path, focal_len=args.focal_len)
+
+    bpy.context.scene.render.resolution_x = args.num_horiz_pixels
+    bpy.context.scene.render.resolution_y = args.num_vert_pixels
+    bpy.context.scene.render.resolution_percentage = 100
 
     if args.use_cycles:
         bpy.context.scene.render.engine = 'CYCLES'
+        bpy.context.scene.cycles.feature_set = 'SUPPORTED'
+        if args.cycles_experimental:
+            bpy.context.scene.cycles.feature_set = 'EXPERIMENTAL'
+        if args.use_gpu:
+            bpy.context.scene.cycles.device = 'GPU'
+            bpy.context.preferences.addons["cycles"].preferences.compute_device_type = "CUDA"
+            bpy.context.preferences.addons["cycles"].preferences.get_devices()
+
+            for device in bpy.context.preferences.addons["cycles"].preferences.devices:
+                 if device.type == 'GPU':
+                    device.use = True
     else:
         bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
 

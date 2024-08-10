@@ -1,6 +1,5 @@
 import bpy
 import random
-from mathutils import Euler
 
 def import_object(obj_path:str):
     """Import a single 3D object into the current Blender scene
@@ -26,7 +25,7 @@ def import_object(obj_path:str):
 
     return imported_obj.name
     
-def setup_scene(scene_path:str, obj_path:str, focal_len:float, camera_name='Camera'):
+def setup_scene(scene_path:str, obj_path:str, camera_name='Camera', focal_len=50.0):
     """Loads the scene and imports an object
     """
     
