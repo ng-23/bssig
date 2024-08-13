@@ -1,4 +1,4 @@
-"""Script for generating images of a object in a scene
+"""Script for generating images of an object in a scene
 with optional image filters applied
 """
 
@@ -37,11 +37,25 @@ def get_args_parser():
         )
     
     parser.add_argument(
-        '--object-pos',
-        type=float,
-        nargs=3,
-        default=None,
-        help='The x, y, z coordinates of the object if specified. Otherwise, position will be randomly chosen.',
+        '--reference-object', 
+        type=str, 
+        default='', 
+        help='Name of an object already in the scene to position the imported object relative to. Otherwise, position is absolute.',
+        )
+    
+    parser.add_argument(
+        '--object-dist', 
+        type=float, 
+        default=None, 
+        help='Distance of imported object relative to object already in scene. Distance randomly chosen within a sphere centered around other object if unspecified.',
+        )
+    
+    parser.add_argument(
+        '--object-pos', 
+        type=float, 
+        nargs=3, 
+        default=None, 
+        help='Absolute x, y, z position of imported object in scene. Randomly chosen within a certain range if unspecified.',
         )
     
     parser.add_argument(
@@ -49,7 +63,7 @@ def get_args_parser():
         type=float,
         nargs=3,
         default=None, 
-        help='The x, y, z distances of the camera from the object if specified. Otherwise, positions will be randomly chosen within a range.',
+        help='The x, y, z distances of the camera from the object if specified. Otherwise, distance will be chosen randomly within a sphere centered around the target.',
         )
     
     parser.add_argument(
@@ -57,7 +71,7 @@ def get_args_parser():
         type=float, 
         nargs=3, 
         default=None, 
-        help='The x, y, z radians of the object if specified. Otherwise, angles will be randomly chosen within a range.',
+        help='The x, y, z rotations of the object if specified. Otherwise, rotation will be randomly chosen.',
         )
     
     parser.add_argument(
@@ -65,7 +79,7 @@ def get_args_parser():
         type=float, 
         nargs=3, 
         default=None, 
-        help='The x, y, z radians of the camera if specified. Otherwise, angles will be randomly chosen within a range.',
+        help='The x, y, z rotations of the camera if specified. Otherwise, rotation will be randomly chosen.',
         )
     
     parser.add_argument(
@@ -73,7 +87,7 @@ def get_args_parser():
         type=float, 
         nargs=3,
         default=[25.0, 25.0, 25.0], 
-        help='The minimum x, y, z when randomly choosing position of object.',
+        help='The minimum x, y, z when randomly choosing absolute position of object.',
         )
     
     parser.add_argument(
@@ -81,23 +95,35 @@ def get_args_parser():
         type=float, 
         nargs=3,
         default=[50.0, 50.0, 50.0], 
-        help='The maximum x, y, z when randomly choosing position of object.',
+        help='The maximum x, y, z when randomly choosing absolute position of object.',
+        )
+    
+    parser.add_argument(
+        '--min-object-dist', 
+        type=float, 
+        default=5.0, 
+        help='Minimum distance of object when positioning imported object relative to exisiting one.',
+        )
+
+    parser.add_argument(
+        '--max-object-dist', 
+        type=float, 
+        default=25.0, 
+        help='Maximum distance of object when positioning imported object relative to existing one.',
         )
     
     parser.add_argument(
         '--min-camera-dist', 
         type=float, 
-        nargs=3,
-        default=[25.0, 25.0, 25.0], 
-        help='The minimum x, y, z when randomly choosing distance of camera from object.',
+        default=5.0, 
+        help='The minimum distance when randomly choosing distance of camera from object.',
         )
     
     parser.add_argument(
         '--max-camera-dist', 
         type=float, 
-        nargs=3,
-        default=[50.0, 50.0, 50.0], 
-        help='The maximum x, y, z when randomly choosing distance of camera from object.',
+        default=25.0, 
+        help='The maximum distance when randomly choosing distance of camera from object.',
         )
     
     parser.add_argument(
@@ -105,7 +131,7 @@ def get_args_parser():
         type=float, 
         nargs=3,
         default=[0.0, 0.0, 0.0], 
-        help='The minimum x, y, z radians when randomly choosing the object\'s rotation.',
+        help='The minimum x, y, z rotations when randomly choosing the object\'s rotation.',
         )
     
     parser.add_argument(
@@ -113,23 +139,7 @@ def get_args_parser():
         type=float, 
         nargs=3,
         default=[360.0, 360.0, 360.0], 
-        help='The maximum x, y, z radians when randomly choosing the object\'s rotation.',
-        )
-    
-    parser.add_argument(
-        '--min-camera-rot', 
-        type=float, 
-        nargs=3,
-        default=[0.0, 0.0, 0.0], 
-        help='The minimum x, y, z radians when randomly choosing the camera\'s rotation.',
-        )
-    
-    parser.add_argument(
-        '--max-camera-rot', 
-        type=float,
-        nargs=3,
-        default=[360.0, 360.0, 360.0], 
-        help='The maximum x, y, z radians when randomly choosing the camera\'s rotation.',
+        help='The maximum x, y, z rotations when randomly choosing the object\'s rotation.',
         )
     
     parser.add_argument(
@@ -137,7 +147,7 @@ def get_args_parser():
         type=float,
         nargs=3,
         default=[0.0, 0.0, 0.0], 
-        help='Minimum random perturbation radians for camera rotation.',
+        help='Minimum random perturbation x, y, z rotations for camera rotation.',
         )
     
     parser.add_argument(
@@ -145,21 +155,21 @@ def get_args_parser():
         type=float,
         nargs=3,
         default=[0.0, 0.0, 0.0], 
-        help='Maximum random perturbation radians for camera rotation.',
+        help='Maximum random perturbation x, y, z rotations for camera rotation.',
         )
-    
+        
+    parser.add_argument(
+        '--sun-dist', 
+        type=float, 
+        default=5000, 
+        help='Distance of the sun object from the origin of the scene.',
+        )
+
     parser.add_argument(
         '--focal-len', 
         type=float,
         default=50.0, 
         help='Length of camera lens.',
-        )
-    
-    parser.add_argument(
-        '--obj-pos-as-dist', 
-        type=str, 
-        default='', 
-        help='Position the object relative to another in the scene if specified. Otherwise, position is absolute.',
         )
     
     parser.add_argument(
@@ -175,28 +185,23 @@ def get_args_parser():
         )
     
     parser.add_argument(
+        '--cycles-device-type', 
+        type=str, 
+        default=None, 
+        help='Device to use for rendering with Cycles.',
+        )
+    
+    parser.add_argument(
         '--cycles-experimental', 
         action='store_true', 
         help='Use the experimental feature set when rendering with Cycles.',
         )
-    
-    parser.add_argument('--sun-long', type=float, default=0.0, help='Longitude of the sun. Must have the Sun Position add-on installed.',)
 
-    parser.add_argument('--sun-lat', type=float, default=0.0, help='Latitude of the sun. Must have the Sun Position add-on installed.',)
-
-    parser.add_argument('--date', type=str, default='2024-01-01', help='Global date in yyyy-mm-dd format. Affects sun position only if Sun Position add-on is installed.',)
-
-    parser.add_argument('--utc-time', type=float, default=12.0, help='UTC time. Affects sun position only if Sun Position add-on is installed.',)
-
-    parser.add_argument('--utc-tz', type=float, default=0.0, help='Local UTC time zone. Affects sun position only if Sun Position add-on is installed.',)
+    parser.add_argument('--num-render-samples', type=int, default=200, help='Number of samples during rendering.',)
 
     parser.add_argument('--num-horiz-pixels', type=int, default=1920, help='Number of horizontal pixels in generated images.',)
     
     parser.add_argument('--num-vert-pixels', type=int, default=1080, help='Number of vertical pixels in generated images.',)
-    
-    parser.add_argument('--apply-gauss-blur', type=float, default=None, help='Sigma for Gaussian blurring if specified.',)
-    
-    parser.add_argument('--apply-gauss-noise', type=float, default=None, help='Variance for Gaussian noise if specified.',)
 
     parser.add_argument(
         '--output-dir', 
@@ -215,55 +220,75 @@ def main():
     if args.output_dir != '':
         utils.mkdir(args.output_dir)
 
-    obj_name = su.setup_scene(args.space_scene_path, args.object_path, focal_len=args.focal_len)
-
-    bpy.context.scene.render.resolution_x = args.num_horiz_pixels
-    bpy.context.scene.render.resolution_y = args.num_vert_pixels
-    bpy.context.scene.render.resolution_percentage = 100
-
-    if args.use_cycles:
-        bpy.context.scene.render.engine = 'CYCLES'
-        bpy.context.scene.cycles.feature_set = 'SUPPORTED'
-        if args.cycles_experimental:
-            bpy.context.scene.cycles.feature_set = 'EXPERIMENTAL'
-        if args.use_gpu:
-            bpy.context.scene.cycles.device = 'GPU'
-            bpy.context.preferences.addons["cycles"].preferences.compute_device_type = "CUDA"
-            bpy.context.preferences.addons["cycles"].preferences.get_devices()
-
-            for device in bpy.context.preferences.addons["cycles"].preferences.devices:
-                 if device.type == 'GPU':
-                    device.use = True
-    else:
-        bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+    camera_settings, render_settings, sun_settings = utils.parser_camera_settings(args), utils.parse_render_settings(args), utils.parse_sun_settings(args)
+    
+    obj_name = su.setup_scene(args.space_scene_path, args.object_path, camera_settings, render_settings, sun_settings)
 
     # render loop
     for i in range(args.num_images):
-        if args.object_pos is not None:
-            if args.obj_pos_as_dist != '':
-                su.set_object_dist(obj_name, args.obj_pos_as_dist, args.object_pos)
+        if args.reference_object:
+            # distance positioning
+            if args.object_dist is not None:
+                # static distance
+                su.set_object_dist(
+                    obj_name, 
+                    args.reference_object, 
+                    args.object_dist,
+                    )
             else:
-                su.set_object_pos(obj_name, args.object_pos)
+                # random distance
+                su.rand_set_object_dist(
+                    obj_name, 
+                    args.reference_object, 
+                    args.min_object_dist, 
+                    args.max_object_dist,
+                    )
         else:
-            if args.obj_pos_as_dist != '':
-                su.rand_set_object_dist(obj_name, args.obj_pos_as_dist, args.min_object_pos, args.max_object_pos)
+            # absolute positioning
+            if args.object_pos is not None:
+                # static absolute position
+                su.set_object_pos(obj_name, args.object_pos,)
             else:
-                su.rand_set_object_pos(obj_name, args.min_object_pos, args.max_object_pos)
-            
+                # random absolute position
+                su.rand_set_object_pos(
+                    obj_name, 
+                    args.min_object_pos, 
+                    args.max_object_pos,
+                    )
+        
         if args.object_rot is not None:
             su.set_object_rot(obj_name, args.object_rot)
         else:
-            su.rand_set_object_rot(obj_name, args.min_object_rot, args.max_object_rot)
+            su.rand_set_object_rot(
+                obj_name, 
+                args.min_object_rot, 
+                args.max_object_rot,
+                )
+            
+        su.rand_set_sun_pos(args.sun_dist)
 
         if args.camera_dist is not None:
-            su.set_camera_dist(obj_name, args.camera_dist)
+            su.set_object_dist(
+                camera_settings.name, 
+                obj_name, 
+                args.camera_dist,
+                )
         else:
-            su.rand_set_camera_dist(obj_name, args.min_camera_dist, args.max_camera_dist)
+            su.rand_set_object_dist(
+                camera_settings.name,
+                obj_name, 
+                args.min_camera_dist, 
+                args.max_camera_dist,
+                )
 
         if args.camera_rot is not None:
-            su.set_camera_rot(args.camera_rot)
+            su.set_object_rot(camera_settings.name, args.camera_rot)
         else:
-            su.rand_set_camera_rot(obj_name, args.min_camera_rot, args.max_camera_rot, min_perturb_vals=args.min_camera_rot_perturb, max_perturb_vals=args.max_camera_rot_perturb)
+            su.rand_set_camera_perturb(
+                camera_name=camera_settings.name,
+                min_xyz_perturbs=args.min_camera_rot_perturb, 
+                max_xyz_perturbs=args.max_camera_rot_perturb,
+                )
 
         bpy.context.scene.render.filepath = os.path.join(args.output_dir, f'img{i}')
 

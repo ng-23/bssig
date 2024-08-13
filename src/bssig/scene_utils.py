@@ -1,5 +1,7 @@
 import bpy
 import random
+import math
+from utils import CameraSettings, RenderSettings, SunSettings
 
 def import_object(obj_path:str):
     """Import a single 3D object into the current Blender scene
@@ -14,7 +16,7 @@ def import_object(obj_path:str):
     elif obj_path.endswith('.stl'):
         bpy.ops.wm.stl_import(filepath=obj_path)
     else:
-        raise Exception('Unknown file format')
+        raise Exception('Unknown/unsupported file format')
     
     imported_objs = set(bpy.data.objects) - curr_objs
 
@@ -25,18 +27,63 @@ def import_object(obj_path:str):
 
     return imported_obj.name
     
-def setup_scene(scene_path:str, obj_path:str, camera_name='Camera', focal_len=50.0):
+def setup_scene(scene_path:str, obj_path:str, camera_settings:CameraSettings, render_settings:RenderSettings, sun_settings:SunSettings):
     """Loads the scene and imports an object
     """
     
     bpy.ops.wm.open_mainfile(filepath=scene_path)
 
-    obj = import_object(obj_path)
+    obj_name = import_object(obj_path)
 
-    camera = bpy.data.objects[camera_name]
-    camera.data.lens = focal_len
+    camera = bpy.data.objects[camera_settings.name]
+    camera.data.lens = camera_settings.focal_len
+    camera.constraints.new(type='TRACK_TO')
+    camera.constraints['Track To'].target = bpy.data.objects[obj_name]
+    camera.constraints['Track To'].track_axis = camera_settings.track_axis
+    camera.constraints['Track To'].up_axis = camera_settings.up_axis
 
-    return obj
+    sun = bpy.data.objects[sun_settings.name]
+    sun.constraints.new(type='TRACK_TO')
+    sun.constraints['Track To'].target = bpy.data.objects['Earth'] # always point the sun towards the earth
+    sun.constraints['Track To'].track_axis = camera_settings.track_axis
+    sun.constraints['Track To'].up_axis = camera_settings.up_axis
+
+    bpy.context.scene.render.resolution_x = render_settings.num_horiz_pixels
+    bpy.context.scene.render.resolution_y = render_settings.num_vert_pixels
+    bpy.context.scene.render.resolution_percentage = render_settings.resolution_perc
+
+    if render_settings.use_cycles:
+        bpy.context.scene.render.engine = 'CYCLES'
+        bpy.context.scene.cycles.feature_set = 'SUPPORTED'
+        bpy.context.scene.cycles.samples = render_settings.num_render_samples
+        if render_settings.cycles_experimental:
+            bpy.context.scene.cycles.feature_set = 'EXPERIMENTAL'
+        if render_settings.use_gpu:
+            bpy.context.scene.cycles.device = 'GPU'
+            bpy.context.preferences.addons["cycles"].preferences.compute_device_type = render_settings.cycles_device_type
+            bpy.context.preferences.addons["cycles"].preferences.get_devices()
+
+            for device in bpy.context.preferences.addons["cycles"].preferences.devices:
+                 if device.type == 'GPU':
+                    device.use = True
+    else:
+        bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+        bpy.context.scene.eevee.taa_render_samples = render_settings.num_render_samples
+
+    return obj_name
+
+def set_sun_pos(dist_from_origin:float, angle:float, sun_name='Sun'):
+    """Set the sun's position on the ecliptic plane
+    
+    Assumes scene is an ECI frame
+    """
+    
+    # calculate x and y positions based on the angle and distance
+    x = dist_from_origin * math.cos(angle)
+    y = dist_from_origin * math.sin(angle)
+    z = 0  # ecliptic plane has z = 0
+    
+    set_object_pos(sun_name, [x,y,z])
 
 def set_object_pos(obj_name:str, xyz):
     """Set an object's position in the scene
@@ -54,16 +101,11 @@ def set_object_rot(obj_name:str, xyz):
 
     obj.rotation_euler = xyz
 
-def set_object_dist(obj1_name:str, obj2_name:str, xyz):
+def set_object_dist(reposition_obj_name:str, static_obj_name:str, xyz):
     """Set the position of an object relative to another in the scene
-
-    Args:
-        obj1: name of an object to set the position of
-
-        ob2_name: name of an object to set the distance to
     """
 
-    obj1, obj2 = bpy.data.objects[obj1_name], bpy.data.objects[obj2_name]
+    obj1, obj2 = bpy.data.objects[reposition_obj_name], bpy.data.objects[static_obj_name]
 
     obj2_x, obj2_y, obj2_z = obj2.location.x, obj2.location.y, obj2.location.z
 
@@ -72,18 +114,6 @@ def set_object_dist(obj1_name:str, obj2_name:str, xyz):
         obj2_y+xyz[1],
         obj2_z+xyz[2],
         )
-    
-def set_camera_dist(obj_name:str, xyz, camera_name='Camera'):
-    """Set the camera's distance from an object in the scene
-    """
-
-    set_object_dist(camera_name, obj_name, xyz)
-
-def set_camera_rot(xyz, camera_name='Camera'):
-    """Set the camera's rotation in the scene
-    """
-
-    set_object_rot(camera_name, xyz)
 
 def rand_xyz(min_vals, max_vals):
     """Randomly generates an (x,y,z) list within a certain range
@@ -98,11 +128,33 @@ def rand_xyz(min_vals, max_vals):
 
     return xyz
 
-def rand_set_object_pos(obj_name:str, min_vals, max_vals):
-    """Randomly set an object's position within a certain range
+def rand_cartesian_coords(min_val:float, max_val:float):
+    radius = random.uniform(min_val, max_val)
+
+    # generate random spherical coordinates
+    theta = random.uniform(0, 2 * math.pi)  # random angle around
+    phi = random.uniform(0, math.pi)        # random inclination angle
+
+    # convert spherical coordinates to Cartesian coordinates
+    x = radius * math.sin(phi) * math.cos(theta)
+    y = radius * math.sin(phi) * math.sin(theta)
+    z = radius * math.cos(phi)
+
+    return [x,y,z]
+
+def rand_set_sun_pos(dist_from_origin:float, sun_name='Sun'):
+    """Randomly set the sun's position along the ecliptic plane
     """
 
-    xyz = rand_xyz(min_vals, max_vals)
+    angle = random.uniform(0, 2*math.pi)
+
+    set_sun_pos(dist_from_origin, angle, sun_name=sun_name)
+
+def rand_set_object_pos(obj_name:str, min_xyz_pos, max_xyz_pos):
+    """Randomly set an object's absolute position within a certain range
+    """
+
+    xyz = rand_xyz(min_xyz_pos, max_xyz_pos)
 
     set_object_pos(obj_name, xyz)
 
@@ -114,40 +166,25 @@ def rand_set_object_rot(obj_name:str, min_vals, max_vals):
 
     set_object_rot(obj_name, xyz)
 
-def rand_set_object_dist(obj1_name:str, obj2_name:str, min_vals, max_vals):
-    """Randomly set the position of an object relative to another within a certain range
+def rand_set_object_dist(reposition_obj_name:str, static_obj_name:str, min_dist:float, max_dist:float):
+    """Randomly set the position of an object relative to another
+
+    Distance is chosen randomly within a sphere centered around the object
     """
 
-    xyz = rand_xyz(min_vals, max_vals)
+    xyz = rand_cartesian_coords(min_dist, max_dist)
 
-    set_object_dist(obj1_name, obj2_name, xyz)
+    set_object_dist(reposition_obj_name, static_obj_name, xyz)
 
-def rand_set_camera_dist(target_obj:str, min_vals, max_val:float, camera_name='Camera'):
-    """Set the camera's distance from an object within a certain range
+def rand_set_camera_perturb(camera_name='Camera', min_xyz_perturbs=[0.0,0.0,0.0], max_xyz_perturbs=[0.0,0.0,0.0]):
+    """Randomly perturb the camera's rotation about an object within a certain range
+
+    It is assumed that the camera specified is already set to track the target object, thus the target object's name cannot be specified when calling
     """
-
-    rand_set_object_dist(camera_name, target_obj, min_vals, max_val)
-
-def rand_set_camera_rot(target_obj_name:str, min_rot_vals, max_rot_vals, min_perturb_vals=[0.0,0.0,0.0], max_perturb_vals=[0.0,0.0,0.0], camera_name='Camera'):
-    """Randomly set the camera's rotation about an object within a certain range
-
-    Rotation will be in such a way that the target object is always
-    at least partially viewable in the camera
-    """
-
-    rand_set_object_rot(camera_name, min_rot_vals, max_rot_vals)
 
     camera = bpy.data.objects[camera_name]
 
-    target = bpy.data.objects[target_obj_name]
-    target_loc = target.location
-
-    direction = target_loc - camera.location
-    rot_quat = direction.to_track_quat('-Z', 'Y')
-    camera.rotation_euler = rot_quat.to_euler()
-
-    # random perturbation
-    xyz = rand_xyz(min_perturb_vals, max_perturb_vals)
+    xyz = rand_xyz(min_xyz_perturbs, max_xyz_perturbs)
     camera.rotation_euler.x += xyz[0] 
     camera.rotation_euler.y += xyz[1]
     camera.rotation_euler.z -= xyz[2]
